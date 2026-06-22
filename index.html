@@ -4,29 +4,38 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mystery Travel Booking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 
-
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VJG1NFBYEE"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-VJG1NFBYEE');
-    </script>
-
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-VJG1NFBYEE"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-VJG1NFBYEE');
+  </script>
 </head>
 <body>
+  <a href="#app" class="skip-link">Skip to main content</a>
+
   <header class="site-header">
     <div class="container header-inner">
-      <a href="#/" class="logo">Mystery Travel</a>
+      <a href="/" class="logo">
+        <span class="logo-mark" aria-hidden="true">✦</span>
+        <span class="logo-text">
+          <span class="logo-name">Mystery Travel</span>
+          <span class="logo-tagline">Surprise destinations</span>
+        </span>
+      </a>
       <nav class="main-nav" aria-label="Main navigation">
-        <a href="#/" data-route="/" class="nav-link">Home</a>
-        <a href="#/wishlist" data-route="/wishlist" class="nav-link">
+        <a href="/" data-route="/" class="nav-link">Home</a>
+        <a href="/wishlist" data-route="/wishlist" class="nav-link">
           Wishlist
           <span id="wishlist-badge" class="badge" hidden>0</span>
         </a>
-        <a href="#/my-trips" data-route="/my-trips" class="nav-link">My Trips</a>
+        <a href="/my-trips" data-route="/my-trips" class="nav-link">My Trips</a>
       </nav>
     </div>
   </header>
@@ -34,44 +43,64 @@
   <main id="app" class="container">
     <!-- Home: Preference Quiz -->
     <section id="view-home" class="view" hidden>
-      <h1>Plan Your Mystery Trip</h1>
-      <p class="lead">Tell us your preferences and we'll match you with surprise destinations. The reveal happens after you book!</p>
-      <form id="quiz-form" class="quiz-form">
-        <fieldset>
-          <legend>Trip Type</legend>
-          <label class="radio-label">
-            <input type="radio" name="tripType" value="beach" required checked>
-            Beach
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="tripType" value="city">
-            City
-          </label>
-          <label class="radio-label">
-            <input type="radio" name="tripType" value="nature">
-            Nature
-          </label>
+      <div class="page-header">
+        <p class="eyebrow">Step 1 · Preferences</p>
+        <h1>Plan your mystery trip</h1>
+        <p class="lead">Choose your vibe and budget — we'll match you with hidden destinations. The reveal happens only after you book.</p>
+      </div>
+
+      <form id="quiz-form" class="quiz-form panel">
+        <fieldset class="fieldset-clean">
+          <legend>Trip type</legend>
+          <div class="option-cards" role="radiogroup" aria-label="Trip type">
+            <label class="option-card">
+              <input type="radio" name="tripType" value="beach" required checked>
+              <span class="option-card-icon" aria-hidden="true">🏖</span>
+              <span class="option-card-label">Beach</span>
+              <span class="option-card-desc">Sun, sand &amp; sea</span>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="tripType" value="city">
+              <span class="option-card-icon" aria-hidden="true">🏙</span>
+              <span class="option-card-label">City</span>
+              <span class="option-card-desc">Culture &amp; cuisine</span>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="tripType" value="nature">
+              <span class="option-card-icon" aria-hidden="true">🏔</span>
+              <span class="option-card-label">Nature</span>
+              <span class="option-card-desc">Trails &amp; views</span>
+            </label>
+          </div>
         </fieldset>
 
-        <fieldset>
-          <legend>Number of Days</legend>
-          <div class="form-group slider-group">
-            <label for="days"><span id="days-value">5</span> days</label>
-            <input type="range" id="days" name="days" min="1" max="7" value="5" required>
+        <fieldset class="fieldset-clean">
+          <legend>Number of days</legend>
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="days">Duration</label>
+              <output id="days-value" class="slider-value" for="days">5 days</output>
+            </div>
+            <input type="range" id="days" name="days" min="1" max="7" value="5" required
+              aria-valuemin="1" aria-valuemax="7" aria-valuenow="5">
             <div class="slider-labels" aria-hidden="true">
-              <span>1</span>
-              <span>7</span>
+              <span>1 day</span>
+              <span>7 days</span>
             </div>
           </div>
         </fieldset>
 
         <div class="form-group">
-          <label for="travelers">Number of Travelers</label>
-          <input type="number" id="travelers" name="travelers" min="1" max="8" value="2" required>
+          <label for="travelers">Travelers</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" id="travelers-decrease" aria-label="Decrease travelers">−</button>
+            <input type="number" id="travelers" name="travelers" min="1" max="8" value="2" required readonly>
+            <button type="button" class="stepper-btn" id="travelers-increase" aria-label="Increase travelers">+</button>
+          </div>
         </div>
 
         <div class="form-group">
-          <label for="budget">Budget per Person (CAD)</label>
+          <label for="budget">Budget per person (CAD)</label>
           <select id="budget" name="budget" required>
             <option value="500-1000">$500 – $1,000</option>
             <option value="1000-1500">$1,000 – $1,500</option>
@@ -80,53 +109,77 @@
           </select>
         </div>
 
-        <button type="submit" class="btn btn-primary">Find Mystery Packages</button>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-lg">Find mystery packages</button>
+        </div>
       </form>
     </section>
 
     <!-- Results -->
     <section id="view-results" class="view" hidden>
-      <h1>Mystery Packages</h1>
-      <p id="results-summary" class="results-summary"></p>
+      <div class="page-header">
+        <p class="eyebrow">Step 2 · Choose a package</p>
+        <h1>Mystery packages</h1>
+        <div id="results-summary" class="filter-pills" aria-live="polite"></div>
+      </div>
       <div id="results-grid" class="card-grid"></div>
-      <p class="back-link"><a href="#/">← Change preferences</a></p>
+      <p class="back-link"><a href="/" class="text-link">← Edit preferences</a></p>
     </section>
 
     <!-- Wishlist -->
     <section id="view-wishlist" class="view" hidden>
-      <h1>Your Wishlist</h1>
+      <div class="page-header">
+        <p class="eyebrow">Saved for later</p>
+        <h1>Your wishlist</h1>
+        <p class="lead">Packages you've saved. Book when you're ready — the destination stays hidden until checkout.</p>
+      </div>
       <div id="wishlist-content"></div>
     </section>
 
     <!-- Checkout -->
     <section id="view-checkout" class="view" hidden>
-      <h1>Checkout</h1>
+      <div class="page-header">
+        <p class="eyebrow">Almost there</p>
+        <h1>Checkout</h1>
+        <p class="lead">Complete your booking to unlock your surprise destination.</p>
+      </div>
+
+      <ol class="progress-steps" aria-label="Booking progress">
+        <li class="progress-step is-complete">Preferences</li>
+        <li class="progress-step is-complete">Package</li>
+        <li class="progress-step is-active" aria-current="step">Payment</li>
+        <li class="progress-step">Reveal</li>
+      </ol>
+
       <div class="checkout-layout">
-        <form id="checkout-form" class="checkout-form">
-          <h2>Traveler &amp; Payment Details</h2>
-          <p class="form-note">This is a demo — no real payment will be processed.</p>
+        <form id="checkout-form" class="checkout-form panel">
+          <h2 class="panel-title">Traveler &amp; payment</h2>
+          <p class="form-note">
+            <span class="form-note-icon" aria-hidden="true">🔒</span>
+            Demo only — no real payment is processed.
+          </p>
 
           <div class="form-group">
-            <label for="passenger-name">Full Name</label>
-            <input type="text" id="passenger-name" name="passengerName" required autocomplete="name">
+            <label for="passenger-name">Full name</label>
+            <input type="text" id="passenger-name" name="passengerName" required autocomplete="name" placeholder="Jane Doe">
           </div>
 
           <div class="form-group">
-            <label for="email">Email (optional)</label>
-            <input type="email" id="email" name="email" autocomplete="email">
+            <label for="email">Email <span class="label-optional">(optional)</span></label>
+            <input type="email" id="email" name="email" autocomplete="email" placeholder="jane@example.com">
           </div>
 
           <div class="form-group">
-            <label for="card-number">Card Number</label>
+            <label for="card-number">Card number</label>
             <input type="text" id="card-number" name="cardNumber" inputmode="numeric"
-              pattern="[0-9]{16}" maxlength="16" placeholder="1234567890123456" required>
+              pattern="[0-9]{16}" maxlength="16" placeholder="1234 5678 9012 3456" required>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label for="expiry">Expiry (MM/YY)</label>
+              <label for="expiry">Expiry</label>
               <input type="text" id="expiry" name="expiry" pattern="(0[1-9]|1[0-2])\/[0-9]{2}"
-                placeholder="12/28" maxlength="5" required>
+                placeholder="MM/YY" maxlength="5" required>
             </div>
             <div class="form-group">
               <label for="cvv">CVV</label>
@@ -135,29 +188,44 @@
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary">Complete Purchase</button>
+          <button type="submit" class="btn btn-primary btn-lg btn-block">Complete purchase</button>
         </form>
 
-        <aside id="checkout-summary" class="checkout-summary"></aside>
+        <aside id="checkout-summary" class="checkout-summary panel panel-accent"></aside>
       </div>
     </section>
 
     <!-- Confirmation / Reveal -->
     <section id="view-confirmation" class="view" hidden>
-      <div class="confirmation-card">
-        <p class="confirmation-emoji" aria-hidden="true">🎉</p>
+      <div class="confirmation-card panel">
+        <div class="confirmation-badge" aria-hidden="true">✦</div>
+        <p class="confirmation-kicker">Booking confirmed</p>
         <h1 id="confirmation-heading"></h1>
         <p id="confirmation-details" class="confirmation-details"></p>
-        <a href="#/my-trips" class="btn btn-primary">View Trip Details</a>
+        <a href="/my-trips" class="btn btn-primary btn-lg">View trip details</a>
       </div>
     </section>
 
     <!-- My Trips -->
     <section id="view-my-trips" class="view" hidden>
-      <h1>My Trips</h1>
+      <div class="page-header">
+        <p class="eyebrow">Your bookings</p>
+        <h1>My trips</h1>
+        <p class="lead">Every destination you've unlocked after checkout.</p>
+      </div>
       <div id="my-trips-content"></div>
     </section>
+
+    <!-- Trip Detail -->
+    <section id="view-trip-detail" class="view" hidden>
+      <p class="back-link back-link--top"><a href="/my-trips" class="text-link">← Back to my trips</a></p>
+      <div id="trip-detail-content"></div>
+    </section>
   </main>
+
+  <aside id="disclaimer-banner" role="note" aria-live="polite">
+    Disclaimer: This website is designed for a university course project and is tracking data such as clicks and page visits to analyze user experience. No real purchases are being made.
+  </aside>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 

@@ -45,6 +45,15 @@ function addBookedTrip(trip) {
   writeJSON(BOOKED_TRIPS_KEY, trips);
 }
 
+function removeBookedTrip(bookingId) {
+  const trips = getBookedTrips().filter((trip) => trip.bookingId !== bookingId);
+  writeJSON(BOOKED_TRIPS_KEY, trips);
+}
+
+function getBookedTripById(bookingId) {
+  return getBookedTrips().find((trip) => trip.bookingId === bookingId) || null;
+}
+
 function getPendingBooking() {
   try {
     const raw = sessionStorage.getItem(PENDING_BOOKING_KEY);

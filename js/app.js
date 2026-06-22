@@ -8,43 +8,99 @@
     "/wishlist": "view-wishlist",
     "/checkout": "view-checkout",
     "/confirmation": "view-confirmation",
-    "/my-trips": "view-my-trips"
+    "/my-trips": "view-my-trips",
+    "/trip-detail": "view-trip-detail"
   };
 
+  const tripTypeIcons = {
+    beach: "🏖",
+    city: "🏙",
+    nature: "🏔"
+  };
+
+  let previousRoute = null;
+  let lastCheckoutStartedKey = null;
+
   function getRoute() {
-    const hash = window.location.hash.slice(1) || "/";
-    return hash.startsWith("/") ? hash : `/${hash}`;
+    const path = window.location.pathname || "/";
+    return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
   }
 
-  function navigate(route) {
-    window.location.hash = route;
+  function parseRoute() {
+    const route = getRoute();
+    if (route.startsWith("/my-trips/") && route.length > "/my-trips/".length) {
+      return {
+        route: "/trip-detail",
+        bookingId: decodeURIComponent(route.slice("/my-trips/".length))
+      };
+    }
+    return { route, bookingId: null };
+  }
+
+  function getPagePath(route, bookingId) {
+    if (route === "/trip-detail" && bookingId) {
+      return `/my-trips/${bookingId}`;
+    }
+    return route;
+  }
+
+  function maybeTrackCheckoutAbandonment(nextRoute) {
+    const { route } = parseRoute();
+    if (route !== "/checkout" || nextRoute === "/checkout") return;
+
+    const pending = getPendingBooking();
+    if (!pending) return;
+
+    const pkg = getPackageById(pending.packageId);
+    if (!pkg) return;
+
+    trackCheckoutAbandoned({
+      packageId: pkg.id,
+      tripType: pkg.tripType,
+      value: pkg.pricePerPerson * pending.travelers,
+      travelers: pending.travelers
+    });
+  }
+
+  function navigate(route, { replace = false } = {}) {
+    const normalized = route === "/" ? "/" : route.replace(/\/+$/, "") || "/";
+
+    if (replace) {
+      history.replaceState(null, "", normalized);
+    } else if (getRoute() !== normalized) {
+      history.pushState(null, "", normalized);
+    }
+
+    renderRoute();
   }
 
   function showToast(message) {
     const toast = document.getElementById("toast");
+    toast.hidden = true;
     toast.textContent = message;
-    toast.hidden = false;
+    requestAnimationFrame(() => {
+      toast.hidden = false;
+    });
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => {
       toast.hidden = true;
-    }, 2500);
+    }, 2800);
   }
 
   function updateWishlistBadge() {
     const badge = document.getElementById("wishlist-badge");
     const count = getWishlist().length;
-    if (count > 0) {
-      badge.textContent = count;
-      badge.hidden = false;
-    } else {
-      badge.hidden = true;
-    }
+
+    badge.textContent = count > 0 ? String(count) : "";
+    badge.hidden = count === 0;
   }
 
   function updateNavActive(route) {
     document.querySelectorAll(".nav-link").forEach((link) => {
       const linkRoute = link.dataset.route;
-      link.classList.toggle("active", linkRoute === route);
+      const isMyTrips = linkRoute === "/my-trips" &&
+        (route === "/my-trips" || route === "/trip-detail");
+      link.classList.toggle("active", linkRoute === route || isMyTrips);
     });
   }
 
@@ -52,6 +108,17 @@
     document.querySelectorAll(".view").forEach((view) => {
       view.hidden = true;
     });
+  }
+
+  function emptyStateHTML({ icon, title, message, ctaText, ctaHref }) {
+    return `
+      <div class="empty-state">
+        <div class="empty-state-icon" aria-hidden="true">${icon}</div>
+        <h2>${title}</h2>
+        <p>${message}</p>
+        <a href="${ctaHref}" class="btn btn-primary">${ctaText}</a>
+      </div>
+    `;
   }
 
   function renderPackageCard(pkg, travelers, options) {
@@ -64,25 +131,32 @@
     const hintsHtml = pkg.hints.map((h) => `<li>${h}</li>`).join("");
 
     card.innerHTML = `
-      <h2>${pkg.name}</h2>
-      <p class="package-meta">${formatTripType(pkg.tripType)} · ${pkg.days} days · Destination hidden</p>
+      <div class="package-card-header">
+        <h2>${pkg.name}</h2>
+        <div class="package-badges">
+          <span class="badge-tag badge-tag--type">${formatTripType(pkg.tripType)}</span>
+          <span class="badge-tag badge-tag--mystery">Mystery</span>
+        </div>
+      </div>
+      <p class="package-meta">${pkg.days} days · Destination revealed after booking</p>
       <ul class="package-hints">${hintsHtml}</ul>
-      <p class="package-price">
-        ${formatPrice(pkg.pricePerPerson)} <span style="font-weight:400;color:#718096">/ person</span>
-        <span class="total">Total for ${travelers} traveler${travelers > 1 ? "s" : ""}: ${formatPrice(total)}</span>
-      </p>
+      <div class="package-price">
+        <span class="package-price-main">${formatPrice(pkg.pricePerPerson)}</span>
+        <span class="package-price-unit"> / person</span>
+        <span class="package-price-total">Total for ${travelers} traveler${travelers > 1 ? "s" : ""}: ${formatPrice(total)}</span>
+      </div>
       <div class="card-actions">
-        <button type="button" class="btn btn-secondary btn-small btn-wishlist" data-id="${pkg.id}" ${inWishlist ? "disabled" : ""}>
-          ${inWishlist ? "In Wishlist" : "Add to Wishlist"}
+        <button type="button" class="btn btn-secondary btn-sm btn-wishlist" data-id="${pkg.id}" ${inWishlist ? "disabled" : ""}>
+          ${inWishlist ? "Saved" : "Add to wishlist"}
         </button>
-        <button type="button" class="btn btn-primary btn-small btn-book" data-id="${pkg.id}">Book Now</button>
+        <button type="button" class="btn btn-primary btn-sm btn-book" data-id="${pkg.id}">Book now</button>
       </div>
     `;
 
     if (options && options.showRemove) {
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
-      removeBtn.className = "btn btn-secondary btn-small";
+      removeBtn.className = "btn btn-ghost btn-sm";
       removeBtn.textContent = "Remove";
       removeBtn.addEventListener("click", () => {
         removeFromWishlist(pkg.id);
@@ -105,7 +179,7 @@
         if (added) {
           trackAddToWishlist(pkg.id, pkg.tripType);
           showToast("Added to wishlist");
-          btn.textContent = "In Wishlist";
+          btn.textContent = "Saved";
           btn.disabled = true;
           updateWishlistBadge();
         }
@@ -116,29 +190,60 @@
       btn.addEventListener("click", () => {
         const pkg = getPackageById(btn.dataset.id);
         if (!pkg) return;
-        const prefs = currentPrefs || { travelers: travelers || 1, budget: pkg.budgetTier, tripType: pkg.tripType, days: String(pkg.days) };
-        setPendingBooking({ packageId: pkg.id, travelers: Number(prefs.travelers) || travelers || 1, prefs });
+        const prefs = currentPrefs || {
+          travelers: travelers || 1,
+          budget: pkg.budgetTier,
+          tripType: pkg.tripType,
+          days: String(pkg.days)
+        };
+        setPendingBooking({
+          packageId: pkg.id,
+          travelers: Number(prefs.travelers) || travelers || 1,
+          prefs
+        });
+        trackBeginCheckout({
+          packageId: pkg.id,
+          tripType: pkg.tripType,
+          value: pkg.pricePerPerson * (Number(prefs.travelers) || travelers || 1),
+          travelers: Number(prefs.travelers) || travelers || 1
+        });
         navigate("/checkout");
       });
     });
   }
 
   function updateDaysDisplay(value) {
-    document.getElementById("days-value").textContent = value;
+    const days = Number(value);
+    const label = days === 1 ? "1 day" : `${days} days`;
+    const output = document.getElementById("days-value");
+    const slider = document.getElementById("days");
+    output.textContent = label;
+    slider.setAttribute("aria-valuenow", value);
   }
 
   function renderHome() {
     const form = document.getElementById("quiz-form");
     if (currentPrefs) {
-      if (form.tripType.value !== currentPrefs.tripType) {
-        const radio = form.querySelector(`input[name="tripType"][value="${currentPrefs.tripType}"]`);
-        if (radio) radio.checked = true;
-      }
+      const radio = form.querySelector(`input[name="tripType"][value="${currentPrefs.tripType}"]`);
+      if (radio) radio.checked = true;
       form.days.value = currentPrefs.days;
       updateDaysDisplay(currentPrefs.days);
       form.travelers.value = currentPrefs.travelers;
       form.budget.value = currentPrefs.budget;
     }
+  }
+
+  function renderResultsSummary() {
+    const summary = document.getElementById("results-summary");
+    const days = Number(currentPrefs.days);
+    const dayLabel = days === 1 ? "1 day" : `${days} days`;
+
+    summary.innerHTML = `
+      <span class="pill">${tripTypeIcons[currentPrefs.tripType] || ""} <strong>${formatTripType(currentPrefs.tripType)}</strong></span>
+      <span class="pill"><strong>${dayLabel}</strong></span>
+      <span class="pill"><strong>${currentPrefs.travelers}</strong> traveler${currentPrefs.travelers > 1 ? "s" : ""}</span>
+      <span class="pill"><strong>${formatBudgetLabel(currentPrefs.budget)}</strong> / person</span>
+    `;
   }
 
   function renderResults() {
@@ -147,9 +252,7 @@
       return;
     }
 
-    const summary = document.getElementById("results-summary");
-    summary.textContent =
-      `Showing mystery packages for: ${formatTripType(currentPrefs.tripType)} · ${currentPrefs.days} days · ${currentPrefs.travelers} traveler${currentPrefs.travelers > 1 ? "s" : ""} · ${formatBudgetLabel(currentPrefs.budget)}/person`;
+    renderResultsSummary();
 
     const grid = document.getElementById("results-grid");
     grid.innerHTML = "";
@@ -158,7 +261,13 @@
     const travelers = Number(currentPrefs.travelers);
 
     if (packages.length === 0) {
-      grid.innerHTML = '<div class="empty-state"><p>No packages found. Try adjusting your preferences.</p><p><a href="#/">Back to quiz</a></p></div>';
+      grid.innerHTML = emptyStateHTML({
+        icon: "🔍",
+        title: "No packages found",
+        message: "Try adjusting your trip type, duration, or budget to see more options.",
+        ctaText: "Edit preferences",
+        ctaHref: "/"
+      });
       return;
     }
 
@@ -174,7 +283,13 @@
     const ids = getWishlist();
 
     if (ids.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>Your wishlist is empty.</p><p><a href="#/">Find mystery packages</a></p></div>';
+      container.innerHTML = emptyStateHTML({
+        icon: "♡",
+        title: "Your wishlist is empty",
+        message: "Save mystery packages while browsing — they'll appear here until you're ready to book.",
+        ctaText: "Find packages",
+        ctaHref: "/"
+      });
       return;
     }
 
@@ -213,20 +328,31 @@
 
     const summary = document.getElementById("checkout-summary");
     summary.innerHTML = `
-      <h2>Order Summary</h2>
+      <h2>Order summary</h2>
       <dl>
         <dt>Package</dt>
         <dd>${pkg.name}</dd>
-        <dt>Trip Type</dt>
+        <dt>Trip type</dt>
         <dd>${formatTripType(pkg.tripType)}</dd>
         <dt>Duration</dt>
         <dd>${pkg.days} days</dd>
         <dt>Travelers</dt>
         <dd>${travelers}</dd>
         <dt>Total</dt>
-        <dd>${formatPrice(total)} CAD</dd>
+        <dd class="checkout-total">${formatPrice(total)} CAD</dd>
       </dl>
     `;
+
+    const checkoutKey = `${pkg.id}:${travelers}`;
+    if (lastCheckoutStartedKey !== checkoutKey) {
+      lastCheckoutStartedKey = checkoutKey;
+      trackCheckoutStarted({
+        packageId: pkg.id,
+        tripType: pkg.tripType,
+        value: total,
+        travelers
+      });
+    }
   }
 
   function renderConfirmation() {
@@ -246,7 +372,12 @@
 
     heading.textContent = `You're going to ${trip.destination}!`;
     details.textContent =
-      `${pkg ? pkg.name : "Mystery trip"} · ${trip.travelers} traveler${trip.travelers > 1 ? "s" : ""} · ${formatPrice(trip.totalPrice)} CAD total · Booked ${new Date(trip.bookedAt).toLocaleDateString("en-CA")}`;
+      `${pkg ? pkg.name : "Mystery trip"} · ${trip.travelers} traveler${trip.travelers > 1 ? "s" : ""} · ${formatPrice(trip.totalPrice)} CAD total · Booked ${new Date(trip.bookedAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}`;
+
+    const viewLink = document.querySelector("#view-confirmation .btn-primary");
+    if (viewLink) {
+      viewLink.href = `/my-trips/${encodeURIComponent(trip.bookingId)}`;
+    }
   }
 
   function renderMyTrips() {
@@ -254,7 +385,13 @@
     const trips = getBookedTrips();
 
     if (trips.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>You haven\'t booked any trips yet.</p><p><a href="#/">Plan a mystery trip</a></p></div>';
+      container.innerHTML = emptyStateHTML({
+        icon: "✈",
+        title: "No trips yet",
+        message: "Book a mystery package to unlock your destination — it'll show up here after checkout.",
+        ctaText: "Plan a trip",
+        ctaHref: "/"
+      });
       return;
     }
 
@@ -263,16 +400,27 @@
 
     trips.forEach((trip) => {
       const pkg = getPackageById(trip.packageId);
-      const card = document.createElement("article");
+      const card = document.createElement("button");
+      card.type = "button";
       card.className = "trip-card";
+      card.dataset.bookingId = trip.bookingId;
       card.innerHTML = `
-        <h2>${pkg ? pkg.name : "Mystery Package"}</h2>
-        <p class="trip-destination">Destination: ${trip.destination}</p>
+        <div class="trip-card-header">
+          <h2>${pkg ? pkg.name : "Mystery Package"}</h2>
+          <span class="trip-status">Confirmed</span>
+        </div>
+        <p class="trip-destination">${trip.destination}</p>
         <p class="trip-meta">
-          ${formatTripType(trip.tripType)} · ${trip.travelers} traveler${trip.travelers > 1 ? "s" : ""} ·
-          ${formatPrice(trip.totalPrice)} CAD · Booked ${new Date(trip.bookedAt).toLocaleDateString("en-CA")}
+          <span>${tripTypeIcons[trip.tripType] || ""} ${formatTripType(trip.tripType)}</span>
+          <span>${trip.travelers} traveler${trip.travelers > 1 ? "s" : ""}</span>
+          <span>${formatPrice(trip.totalPrice)} CAD</span>
+          <span>Booked ${new Date(trip.bookedAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}</span>
         </p>
+        <p class="trip-card-hint">Tap to view full details</p>
       `;
+      card.addEventListener("click", () => {
+        navigate(`/my-trips/${encodeURIComponent(trip.bookingId)}`);
+      });
       list.appendChild(card);
     });
 
@@ -280,8 +428,99 @@
     container.appendChild(list);
   }
 
+  function renderTripDetail(bookingId) {
+    const container = document.getElementById("trip-detail-content");
+    const trip = getBookedTripById(bookingId);
+
+    if (!trip) {
+      navigate("/my-trips");
+      return;
+    }
+
+    const pkg = getPackageById(trip.packageId);
+    const hintsHtml = pkg
+      ? pkg.hints.map((h) => `<li>${h}</li>`).join("")
+      : "";
+    const pricePerPerson = pkg
+      ? pkg.pricePerPerson
+      : Math.round(trip.totalPrice / trip.travelers);
+
+    container.innerHTML = `
+      <article class="trip-detail-card panel">
+        <div class="trip-detail-header">
+          <h1>${pkg ? pkg.name : trip.packageName || "Mystery Package"}</h1>
+          <div class="package-badges">
+            <span class="badge-tag badge-tag--type">${formatTripType(trip.tripType)}</span>
+            <span class="trip-status">Confirmed</span>
+          </div>
+        </div>
+
+        <div class="trip-detail-destination">
+          <span aria-hidden="true">📍</span>
+          <span>Destination: ${trip.destination}</span>
+        </div>
+
+        ${pkg ? `<ul class="package-hints trip-detail-section">${hintsHtml}</ul>` : ""}
+
+        <div class="trip-detail-section">
+          <h2>Booking details</h2>
+          <dl class="trip-detail-meta-grid">
+            <div class="trip-detail-meta-item">
+              <dt>Duration</dt>
+              <dd>${trip.days || (pkg ? pkg.days : "—")} days</dd>
+            </div>
+            <div class="trip-detail-meta-item">
+              <dt>Travelers</dt>
+              <dd>${trip.travelers}</dd>
+            </div>
+            <div class="trip-detail-meta-item">
+              <dt>Price per person</dt>
+              <dd>${formatPrice(pricePerPerson)}</dd>
+            </div>
+            <div class="trip-detail-meta-item">
+              <dt>Total paid</dt>
+              <dd>${formatPrice(trip.totalPrice)} CAD</dd>
+            </div>
+            <div class="trip-detail-meta-item">
+              <dt>Passenger</dt>
+              <dd>${trip.passengerName || "—"}</dd>
+            </div>
+            <div class="trip-detail-meta-item">
+              <dt>Booked on</dt>
+              <dd>${new Date(trip.bookedAt).toLocaleDateString("en-CA", { dateStyle: "medium" })}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="trip-detail-actions">
+          <button type="button" class="btn btn-danger" id="cancel-booking-btn">Cancel booking</button>
+        </div>
+      </article>
+    `;
+
+    document.getElementById("cancel-booking-btn").addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "Cancel this booking? This will remove the trip from My Trips."
+      );
+      if (!confirmed) return;
+
+      removeBookedTrip(trip.bookingId);
+      if (lastBookingId === trip.bookingId) {
+        lastBookingId = null;
+      }
+      showToast("Booking cancelled");
+      navigate("/my-trips");
+    });
+  }
+
   function renderRoute() {
-    const route = getRoute();
+    const { route, bookingId } = parseRoute();
+
+    if (previousRoute === "/checkout" && route !== "/checkout") {
+      maybeTrackCheckoutAbandonment(route);
+    }
+    previousRoute = route;
+
     updateNavActive(route);
     updateWishlistBadge();
     hideAllViews();
@@ -293,6 +532,7 @@
     }
 
     document.getElementById(viewId).hidden = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
 
     switch (route) {
       case "/":
@@ -313,11 +553,30 @@
       case "/my-trips":
         renderMyTrips();
         break;
+      case "/trip-detail":
+        renderTripDetail(bookingId);
+        break;
     }
+
+    trackPageView(getPagePath(route, bookingId));
+  }
+
+  function adjustTravelers(delta) {
+    const input = document.getElementById("travelers");
+    const next = Math.min(8, Math.max(1, Number(input.value) + delta));
+    input.value = next;
   }
 
   document.getElementById("days").addEventListener("input", (e) => {
     updateDaysDisplay(e.target.value);
+  });
+
+  document.getElementById("travelers-decrease").addEventListener("click", () => {
+    adjustTravelers(-1);
+  });
+
+  document.getElementById("travelers-increase").addEventListener("click", () => {
+    adjustTravelers(1);
   });
 
   document.getElementById("quiz-form").addEventListener("submit", (e) => {
@@ -330,6 +589,14 @@
       budget: form.budget.value
     };
     savePrefs(currentPrefs);
+    const resultsCount = getMatchingPackages(currentPrefs).length;
+    trackSearchPackages({
+      tripType: currentPrefs.tripType,
+      days: currentPrefs.days,
+      travelers: currentPrefs.travelers,
+      budgetTier: currentPrefs.budget,
+      resultsCount
+    });
     navigate("/results");
   });
 
@@ -347,7 +614,7 @@
     const prefs = pending.prefs || currentPrefs || {};
 
     const bookingId = `booking-${Date.now()}`;
-    const trip = {
+    addBookedTrip({
       bookingId,
       packageId: pkg.id,
       packageName: pkg.name,
@@ -359,9 +626,8 @@
       bookedAt: new Date().toISOString(),
       passengerName: form.passengerName.value.trim(),
       destination: pkg.destination
-    };
+    });
 
-    addBookedTrip(trip);
     removeFromWishlist(pkg.id);
     trackCheckoutComplete({
       tripType: pkg.tripType,
@@ -372,14 +638,28 @@
 
     lastBookingId = bookingId;
     clearPendingBooking();
+    lastCheckoutStartedKey = null;
     updateWishlistBadge();
     navigate("/confirmation");
   });
 
-  window.addEventListener("hashchange", renderRoute);
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest('a[href^="/"]');
+    if (!link || link.target === "_blank") return;
+
+    const url = new URL(link.href, window.location.origin);
+    if (url.origin !== window.location.origin) return;
+
+    e.preventDefault();
+    navigate(url.pathname);
+  });
+
+  window.addEventListener("popstate", renderRoute);
   window.addEventListener("DOMContentLoaded", () => {
-    if (!window.location.hash) {
-      window.location.hash = "#/";
+    const savedPath = sessionStorage.getItem("spa-path");
+    if (savedPath) {
+      sessionStorage.removeItem("spa-path");
+      history.replaceState(null, "", savedPath);
     }
     renderRoute();
   });
