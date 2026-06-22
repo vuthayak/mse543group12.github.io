@@ -4,8 +4,25 @@
   <meta charset="UTF-8">
   <title>Redirecting…</title>
   <script>
-    sessionStorage.setItem("spa-path", window.location.pathname + window.location.search);
-    window.location.replace("/");
+    (function () {
+      var segment = location.pathname.split("/").filter(Boolean)[0] || "";
+      var base = segment ? "/" + segment + "/" : "/";
+      var appPath = location.pathname;
+
+      if (segment) {
+        var prefix = "/" + segment;
+        if (appPath.startsWith(prefix)) {
+          appPath = appPath.slice(prefix.length) || "/";
+        }
+      }
+
+      if (appPath.length > 1 && appPath.endsWith("/")) {
+        appPath = appPath.slice(0, -1);
+      }
+
+      sessionStorage.setItem("spa-path", appPath + location.search);
+      location.replace(base);
+    })();
   </script>
 </head>
 <body></body>

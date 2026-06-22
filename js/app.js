@@ -21,9 +21,36 @@
   let previousRoute = null;
   let lastCheckoutStartedKey = null;
 
+  function getBasePath() {
+    const segment = window.location.pathname.split("/").filter(Boolean)[0];
+    if (segment && segment.includes(".github.io")) {
+      return `/${segment}`;
+    }
+    return "";
+  }
+
+  function toAppRoute(pathname) {
+    const base = getBasePath();
+    let path = pathname || "/";
+    if (base && path.startsWith(base)) {
+      path = path.slice(base.length) || "/";
+    }
+    if (path.length > 1 && path.endsWith("/")) {
+      path = path.slice(0, -1);
+    }
+    return path || "/";
+  }
+
+  function toFullPath(appRoute) {
+    const base = getBasePath();
+    if (appRoute === "/") {
+      return `${base}/`;
+    }
+    return `${base}${appRoute}`;
+  }
+
   function getRoute() {
-    const path = window.location.pathname || "/";
-    return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+    return toAppRoute(window.location.pathname);
   }
 
   function parseRoute() {
@@ -64,11 +91,12 @@
 
   function navigate(route, { replace = false } = {}) {
     const normalized = route === "/" ? "/" : route.replace(/\/+$/, "") || "/";
+    const fullPath = toFullPath(normalized);
 
     if (replace) {
-      history.replaceState(null, "", normalized);
-    } else if (getRoute() !== normalized) {
-      history.pushState(null, "", normalized);
+      history.replaceState(null, "", fullPath);
+    } else if (toAppRoute(window.location.pathname) !== normalized) {
+      history.pushState(null, "", fullPath);
     }
 
     renderRoute();
@@ -266,7 +294,7 @@
         title: "No packages found",
         message: "Try adjusting your trip type, duration, or budget to see more options.",
         ctaText: "Edit preferences",
-        ctaHref: "/"
+        ctaHref: "./"
       });
       return;
     }
@@ -288,7 +316,7 @@
         title: "Your wishlist is empty",
         message: "Save mystery packages while browsing — they'll appear here until you're ready to book.",
         ctaText: "Find packages",
-        ctaHref: "/"
+        ctaHref: "./"
       });
       return;
     }
@@ -376,7 +404,7 @@
 
     const viewLink = document.querySelector("#view-confirmation .btn-primary");
     if (viewLink) {
-      viewLink.href = `/my-trips/${encodeURIComponent(trip.bookingId)}`;
+      viewLink.href = toFullPath(`/my-trips/${encodeURIComponent(trip.bookingId)}`);
     }
   }
 
@@ -390,7 +418,7 @@
         title: "No trips yet",
         message: "Book a mystery package to unlock your destination — it'll show up here after checkout.",
         ctaText: "Plan a trip",
-        ctaHref: "/"
+        ctaHref: "./"
       });
       return;
     }
@@ -644,14 +672,19 @@
   });
 
   document.addEventListener("click", (e) => {
-    const link = e.target.closest('a[href^="/"]');
+    const link = e.target.closest("a[href]");
     if (!link || link.target === "_blank") return;
 
-    const url = new URL(link.href, window.location.origin);
+    const href = link.getAttribute("href");
+    if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:")) {
+      return;
+    }
+
+    const url = new URL(link.href, window.location.href);
     if (url.origin !== window.location.origin) return;
 
     e.preventDefault();
-    navigate(url.pathname);
+    navigate(toAppRoute(url.pathname));
   });
 
   window.addEventListener("popstate", renderRoute);
@@ -659,7 +692,8 @@
     const savedPath = sessionStorage.getItem("spa-path");
     if (savedPath) {
       sessionStorage.removeItem("spa-path");
-      history.replaceState(null, "", savedPath);
+      const [pathname, search = ""] = savedPath.split("?");
+      history.replaceState(null, "", toFullPath(pathname) + (search ? `?${search}` : ""));
     }
     renderRoute();
   });
